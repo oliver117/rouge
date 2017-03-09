@@ -1,0 +1,38 @@
+with Ada.Text_IO;
+use Ada.Text_IO;
+
+-- Random gibberish example
+procedure Ada_Demo is
+   type My_Float is digits 16 range 0.0 .. 12.3E100;
+
+   function To_Str (F : in My_Float) return String is
+   begin
+      return My_Float'Image (F);
+   end To_Str;
+
+   Str : String := "Hello ""Double-Quotes""!";
+
+   Binary_Number : Integer := 2#0101_0011#;
+
+   Float_Number : My_Float := 1_123.0E17;
+
+   Char : Character := 'C';
+
+   type Test_Record (N : Natural) is record
+      S : String (1 .. N);
+      X : Integer;
+      Y : Positive;
+   end record;
+
+   function Make_Test_Record (N : in out Integer) return Test_Record is
+   begin
+      return TR : Test_Record (N => N) do
+         TR.X := 0;
+         TR.Y := 1;
+      end return;
+   end Make_Test_Record;
+      
+begin
+   Ada.Text_IO.Put_Line (str);
+   Ada.Text_IO.Put_Line (to_str (float_number));
+end Ada_Demo;

@@ -1,0 +1,396 @@
+-- Long sample Ada program from
+-- http://perso.telecom-paristech.fr/~pautet/Ada95/e_c33_p3.ada
+
+                                       -- Chapter 33 - Program 3
+-- This is a dynamic string package which can be used as an aid
+-- in writing string intensive programs.  Ada only has a static
+-- string capability, so this package was written as an example of
+-- how the Ada programming language can be expanded.
+
+-- A dynamic string is defined as an array of characters of maximum
+-- length of 255.  The dynamic length of the dynamic string is
+-- stored in the Max_Length field of the record. So the string
+-- must be defined with a lower limit of 1 and an upper limit of
+-- whatever the desired maximum length of the string is to be. The
+-- subtype STRING_SIZE limits the string length when it is defined.
+
+-- Put      Outputs a dynamic string to the monitor
+-- ConCat   Concatenates two dynamic strings and puts the result
+--           into a third dynamic string
+-- Copy     Copies a dynamic string to another dynamic string
+-- Copy     Copies a static string to a dynamic string
+-- Delete   Deletes a group of characters from a dynamic string
+-- Insert   Inserts a group of characters into a dynamic string
+-- Length   Returns the dynamic length of a dynamic string
+-- Size_Of  Returns the static length of a dynamic string
+-- Pos      Returns the first location of a dynamic string within
+--           another dynamic string
+
+with Ada.Text_IO; use Ada.Text_IO;
+
+package DynStrng is
+
+   subtype STRING_SIZE is INTEGER range 0..255;
+   type STRING_ARRAY is array(STRING_SIZE range <>) of CHARACTER;
+
+   type DYNAMIC_STRING(Maximum_Length : STRING_SIZE) is
+      record
+         Dynamic_Length  : INTEGER range 0..255;
+         String_Data     : STRING_ARRAY(1..Maximum_Length);
+      end record;
+
+
+-- Put : Display a dynamic string on the monitor.
+procedure Put(Input_String : in     DYNAMIC_STRING);
+
+
+-- ConCat : Concatenation - The First_String is copied into the
+--             Result_String, then the Second_String is copied
+--             into the Result_String following the First_String.
+--             If all characters fit, Result is set to TRUE.
+--             If Result_String will not hold all characters,
+--             only as many as will fit are copied and Result
+--             is set to FALSE.
+--             Result = TRUE, complete copy done.
+--             Result = FALSE, some or all not copied
+procedure ConCat(First_String  : in     DYNAMIC_STRING;
+                 Second_String : in     DYNAMIC_STRING;
+                 Result_String : in out DYNAMIC_STRING;
+                 Result        :    out BOOLEAN);
+
+
+-- Copy : The String contained in Input_String is copied into
+--             the string Output_String.  This procedure is
+--             overloaded to include copying from either dynamic
+--             strings or static strings.
+--             Result = TRUE, complete copy done
+--             Result = FALSE, some or all not copied
+procedure Copy(Input_String  : in     DYNAMIC_STRING;
+               Output_String : in out DYNAMIC_STRING;
+               Result        :    out BOOLEAN);
+procedure Copy(Input_String  : in     STRING;
+               Output_String :    out DYNAMIC_STRING;
+               Result        :    out BOOLEAN);
+
+
+-- Delete : Beginning at First_Position, as many characters as are
+--             indicated by Number_Of_Characters are deleted from
+--             String_To_Modify.  If there are not that many, only
+--             as many as are left are deleted.
+--             Result = TRUE, deletion was complete
+--             Result = FALSE, only a partial deletion was done
+procedure Delete(String_To_Modify     : in out DYNAMIC_STRING;
+                 First_Position       : in     STRING_SIZE;
+                 Number_Of_Characters : in     STRING_SIZE;
+                 Result               :    out BOOLEAN);
+
+
+-- Insert : The string String_To_Insert is inserted into the string
+--             String_To_Modify begining at location Place_To_Insert
+--             if there is enough room.
+--             Result = TRUE, insert completed in full
+--             Result = FALSE, not enough room for full insert
+procedure Insert(String_To_Modify : in out DYNAMIC_STRING;
+                 String_To_Insert : in     DYNAMIC_STRING;
+                 Place_To_Insert  : in     STRING_SIZE;
+                 Result           :    out BOOLEAN);
+
+
+-- Length : Returns the dynamic length of the string defined by
+--             String_To_Measure.
+function Length(String_To_Measure : in DYNAMIC_STRING)
+                 return STRING_SIZE;
+
+
+-- Size_Of : Returns the static length of the string, the actual
+--             upper limit of the string definition.
+function Size_Of(String_To_Measure : in DYNAMIC_STRING)
+                 return STRING_SIZE;
+
+
+-- Pos : Position of substring - The string String_To_Search is
+--             searched for the string Required_String beginning
+--             at Place_To_Start.
+--             Result = TRUE, a search was possible
+--             Result = FALSE, no search could be made
+--             Location_Found = 0, no string found
+--             Location_Found = N, start of matching string
+procedure Pos(String_To_Search : in     DYNAMIC_STRING;
+              Required_String  : in     DYNAMIC_STRING;
+              Place_To_Start   : in     STRING_SIZE;
+              Location_Found   :    out STRING_SIZE;
+              Result           :    out BOOLEAN);
+
+end DynStrng;
+
+
+
+
+
+
+
+package body DynStrng is
+
+               -- The display procedure overloads the existing
+               -- Put procedures to output a dynamic string. Note
+               -- that the existing Put is used in this new Put.
+procedure Put(Input_String : in     DYNAMIC_STRING) is
+begin
+   for Index in 1..Input_String.Dynamic_Length loop
+      Put(Input_String.String_Data(Index));
+   end loop;
+end Put;
+
+
+
+
+procedure ConCat(First_String  : in     DYNAMIC_STRING;
+                 Second_String : in     DYNAMIC_STRING;
+                 Result_String : in out DYNAMIC_STRING;
+                 Result        :    out BOOLEAN) is
+Intermediate_Result : BOOLEAN;
+Character_Count     : STRING_SIZE;
+Room_Left           : STRING_SIZE;
+begin
+                       -- Copy the first into the result string
+   Copy(First_String,Result_String,Intermediate_Result);
+   if Intermediate_Result then
+      Character_Count := Second_String.Dynamic_Length;
+      Room_Left := Result_String.String_Data'LAST
+                                - Result_String.Dynamic_Length;
+      Result := TRUE;
+      if Character_Count > Room_Left then
+         Character_Count := Room_Left;
+         Result := FALSE;
+      end if;
+      for Index in 1..Character_Count loop
+         Result_String.String_Data
+                 (Index + Result_String.Dynamic_Length) :=
+                                     Second_String.String_Data(Index);
+      end loop;
+      Result_String.Dynamic_Length :=
+                    Result_String.Dynamic_Length + Character_Count;
+   else
+      Result := FALSE;
+   end if;
+end ConCat;
+
+
+
+
+               -- This procedure overloads the name Copy to
+               -- copy from one dynamic string to another.
+procedure Copy(Input_String  : in     DYNAMIC_STRING;
+               Output_String : in out DYNAMIC_STRING;
+               Result        :    out BOOLEAN) is
+Character_Count : STRING_SIZE;
+begin
+                       -- First pick the smallest string size
+   Character_Count := Input_String.Dynamic_Length;
+   if Character_Count > Output_String.String_Data'LAST then
+      Character_Count := Output_String.String_Data'LAST;
+      Result := FALSE; -- The entire string didn't fit
+   else
+      Result := TRUE;  -- The entire string fit
+   end if;
+
+   for Index in 1..Character_Count loop
+      Output_String.String_Data(Index) :=
+                               Input_String.String_Data(Index);
+   end loop;
+   Output_String.Dynamic_Length := Character_Count;
+end Copy;
+
+
+
+
+               -- This routine overloads the copy procedure name
+               -- to copy a static string into a dynamic string.
+procedure Copy(Input_String  : in     STRING;
+               Output_String :    out DYNAMIC_STRING;
+               Result        :    out BOOLEAN) is
+Character_Count : STRING_SIZE;
+begin
+                       -- First pick the smallest string size
+   Character_Count := Input_String'LAST;
+   if Character_Count > Output_String.String_Data'LAST then
+      Character_Count := Output_String.String_Data'LAST;
+      Result := FALSE; -- The entire string didn't fit
+   else
+      Result := TRUE;  -- The entire string fit
+   end if;
+
+   for Index in 1..Character_Count loop
+      Output_String.String_Data(Index) :=
+                               Input_String(Index);
+   end loop;
+   Output_String.Dynamic_Length := Character_Count;
+end Copy;
+
+
+
+
+procedure Delete(String_To_Modify     : in out DYNAMIC_STRING;
+                 First_Position       : in     STRING_SIZE;
+                 Number_Of_Characters : in     STRING_SIZE;
+                 Result               :    out BOOLEAN) is
+Number_To_Delete       : STRING_SIZE;
+Number_To_Move         : STRING_SIZE;
+Last_Dynamic_Character : STRING_SIZE :=
+                                String_To_Modify.Dynamic_Length;
+begin
+                         -- can we delete any at all?
+   if First_Position > Last_Dynamic_Character then
+      Result := FALSE;
+      return;
+   end if;
+                         -- Decide how many to delete
+   if (First_Position + Number_Of_Characters)
+                                   > Last_Dynamic_Character then
+      Number_To_Delete := Last_Dynamic_Character
+                                             - First_Position + 1;
+      Result := FALSE;
+   else
+      Number_To_Delete := Number_Of_Characters;
+      Result := TRUE;
+   end if;
+
+                  -- find out how many to move back
+   if (Last_Dynamic_Character - (First_Position + Number_To_Delete))
+                                                           >= 0 then
+      Number_To_Move := 1 + Last_Dynamic_Character
+                           - (First_Position + Number_To_Delete);
+   else
+      Number_To_Move := 0;
+   end if;
+
+                  -- now delete the characters by moving them back
+   for Index in First_Position..
+                          (First_Position + Number_To_Move - 1) loop
+      String_To_Modify.String_Data(Index) :=
+              String_To_Modify.String_Data(Index + Number_To_Delete);
+   end loop;
+   String_To_Modify.Dynamic_Length :=
+                 String_To_Modify.Dynamic_Length - Number_To_Delete;
+end Delete;
+
+
+
+
+procedure Insert(String_To_Modify : in out DYNAMIC_STRING;
+                 String_To_Insert : in     DYNAMIC_STRING;
+                 Place_To_Insert  : in     STRING_SIZE;
+                 Result           :    out BOOLEAN) is
+Number_To_Add  : STRING_SIZE;
+Number_To_Move : STRING_SIZE;
+Room_Left      : STRING_SIZE;
+begin
+                        -- Can we add any at all?
+   if (Place_To_Insert > String_To_Modify.String_Data'LAST) or
+     (Place_To_Insert > String_To_Modify.Dynamic_Length + 1) then
+      Result := FALSE;
+      return;
+   end if;
+   Result := TRUE;
+
+                        -- How many can we add?
+   Number_To_Add := String_To_Modify.String_Data'LAST
+                                               - Place_To_Insert + 1;
+   if Number_To_Add > String_To_Insert.Dynamic_Length then
+      Number_To_Add := String_To_Insert.Dynamic_Length;
+   end if;
+
+                        -- Find how many to move forward
+   Number_To_Move := String_To_Modify.Dynamic_Length
+                                             - Place_To_Insert + 1;
+   Room_Left := String_To_Modify.String_Data'LAST
+                                             - Place_To_Insert + 1;
+   if Room_Left < Number_To_Move then
+      Number_To_Move := Room_Left;
+   end if;
+
+                        -- Move them forward
+   for Index in reverse Place_To_Insert..Place_To_Insert
+                                         + Number_To_Move - 1 loop
+      String_To_Modify.String_Data(Index + Number_To_Add) :=
+                                 String_To_Modify.String_Data(Index);
+   end loop;
+   for Index in 1..Number_To_Add loop
+      String_To_Modify.String_Data(Index + Place_To_Insert - 1) :=
+                                  String_To_Insert.String_Data(Index);
+   end loop;
+
+                        -- Increase the length of the string
+   String_To_Modify.Dynamic_Length :=
+                   String_To_Modify.Dynamic_Length + Number_To_Add;
+   if String_To_Modify.Dynamic_Length >
+                               String_To_Modify.String_Data'LAST then
+      String_To_Modify.Dynamic_Length := String_To_Modify.String_Data'LAST;
+   end if;
+
+end Insert;
+
+
+
+
+               -- This returns the dynamic length of a string
+function Length(String_To_Measure : in DYNAMIC_STRING)
+                 return STRING_SIZE is
+begin
+   return String_To_Measure.Dynamic_Length;
+end Length;
+
+
+
+
+               -- This returns the static length of a string
+function Size_Of(String_To_Measure : in DYNAMIC_STRING)
+                 return STRING_SIZE is
+begin
+   return String_To_Measure.String_Data'LAST;
+end Size_Of;
+
+
+
+
+procedure Pos(String_To_Search : in     DYNAMIC_STRING;
+              Required_String  : in     DYNAMIC_STRING;
+              Place_To_Start   : in     STRING_SIZE;
+              Location_Found   :    out STRING_SIZE;
+              Result           :    out BOOLEAN) is
+End_Search             : STRING_SIZE;
+Characters_All_Compare : BOOLEAN;
+begin
+   Location_Found := 0;
+                          -- can we search the string at all?
+   if (Place_To_Start < String_To_Search.Dynamic_Length) and
+           (Place_To_Start < String_To_Search.String_Data'LAST) then
+      Result := TRUE;
+   else
+      Result := FALSE;
+      return;
+   end if;
+
+                          -- search the loop for the string now
+   End_Search := String_To_Search.Dynamic_Length -
+                                  Required_String.Dynamic_Length + 1;
+
+   for Index in Place_To_Start..End_Search loop      -- search loop
+      Characters_All_Compare := TRUE;
+      for Count in 1..Required_String.Dynamic_Length loop
+         if Required_String.String_Data(Count) /=
+                 String_To_Search.String_Data(Count + Index - 1) then
+            Characters_All_Compare := FALSE;
+            exit;         -- exit loop, a character did not match
+         end if;
+      end loop;
+      if Characters_All_Compare then
+         Location_Found := Index;
+         return;             -- string match found, return location
+      end if;
+   end loop;  -- end search loop
+
+end Pos;
+
+end DynStrng;
+
